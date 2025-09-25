@@ -1,0 +1,29 @@
+# Binaries and build artifacts
+bin/
+obj/
+*.o
+*.so
+*.a
+*.exe
+*.dll
+*.dylib
+
+# Build variants
+debug_*/
+release_*/
+lib/
+lib64/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+cmake-build*/
+CMakeFiles/
+CMakeCache.txt
