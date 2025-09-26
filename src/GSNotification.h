@@ -31,6 +31,7 @@
 #include "Poco/StringTokenizer.h"
 #include "Poco/Util/Application.h"
 #include <vector>
+#include <memory>
 
 
 namespace Poco
@@ -39,76 +40,25 @@ namespace Poco
 	class NotificationQueue;
 }
 
-class PrintNotification : public Poco::Notification
-	/// Notification  for printing. This notification carries
-	/// PDF file and printer names, as well as the name of the
-	/// external program used to send the PDF file to printer
-{
+
+struct Job {
+	std::string pdfPath;
+	std::string pclPath;
+	std::vector<std::string> gsArgs;
+	std::vector<std::string> printers;
+	std::string jobId; 
+};
+using JobPtr = std::shared_ptr<Job>;
+
+
+class JobNotification : public Poco::Notification {
 public:
-	enum Type
+	JobNotification(JobPtr j) : 
+		job(std::move(j)) 
 	{
-		PRINT_EXT_PDF,
-		PRINT_DIRECT_PDF,
-		PRINT_DIRECT_PCL
-	};
+	}
 
-	PrintNotification() = delete;
-		/// Deleted default constructor.
-
-	PrintNotification(const std::string& printers, const std::string& file, bool disposable, std::vector<std::string> gsArgs);
-		/// Creates the PrintNotification.
-
-	~PrintNotification();
-		/// Destroys the PrintNotification.
-
-	Type type() const;
-		/// Returns the printing type.
-
-	const std::string& printer() const;
-		/// Returns the printer name.
-
-	const std::string& file() const;
-		/// Returns the file name.
-
-	bool isDisposable() const;
-		/// Returns true if file is disposable, false otherwise.
-		/// Disposable files are deleted after printing.
-		/// An example of a disposable file is the blank charge sheet file.
-		/// charge sheets containing data are retained for recording purposes.
-
-    const std::vector<std::string>& gsArgs() const;
-
-private:
-	Type _type;
-	std::string _printer;
-	std::string _file;
-	bool        _disposable = false;
-	std::vector<std::string> _gsArgs;
+	JobPtr job;
 };
 
-inline PrintNotification::Type PrintNotification::type() const
-{
-	return _type;
-}
-
-inline bool PrintNotification::isDisposable() const
-{
-	return _disposable;
-}
-
-inline const std::vector<std::string>& PrintNotification::gsArgs() const
-{
-	return _gsArgs;
-}
-
-inline const std::string& PrintNotification::printer() const
-{
-	return _printer;
-}
-
-inline const std::string& PrintNotification::file() const
-{
-	return _file;
-}
-
-#endif
+#endif // GSNotification_INCLUDED

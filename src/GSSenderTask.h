@@ -1,5 +1,5 @@
 //
-// GSNotification.cpp
+// GSSenderTask.h
 //
 //
 // Copyright (C) 2025 Aleph ONE Software Engineering LLC
@@ -19,42 +19,33 @@
 //
 
 
+#include "Poco/Task.h"
+#include "Poco/Notification.h"
+#include "Poco/Util/LayeredConfiguration.h"
 #include "GSNotification.h"
 
-
-using namespace Poco;
-using namespace Poco::Util;
-
-
-PrintNotification::PrintNotification(const std::string& printer, const std::string& file, bool disposable, std::vector<std::string> gsArgs):
-	_printer(printer),
-	_file(file),
-	_disposable(disposable),
-	_gsArgs(gsArgs)
+namespace Poco
 {
-	int opts = StringTokenizer::TOK_TRIM;
-	StringTokenizer st(_printer, "/", opts);
-	if (st.count() > 0) _printer = st[0];
-	if (_printer.empty())
-		throw Poco::InvalidArgumentException("Printer must be specified.");
-	if (st.count() > 1)
-	{
-		if (st[1] == "PCL")
-		{
-			_type = PRINT_DIRECT_PCL;
-			return;
-		}
-		else if (st[1] == "PDF")
-		{
-			_type = PRINT_DIRECT_PDF;
-			return;
-		}
-	}
-	_type = PRINT_DIRECT_PCL;
+	class Logger;
+	class NotificationQueue;
 }
 
-
-PrintNotification::~PrintNotification()
+class GSSenderTask : public Poco::Task
 {
-}
+public:
+	GSSenderTask(Poco::NotificationQueue& sendQ, Poco::Logger& logger, Poco::Util::LayeredConfiguration& config);
+	~GSSenderTask();
+
+	void runTask();
+
+private:
+
+	bool sendFile(const std::string& pclfile, const std::string& printer);
+
+	Poco::Logger& _logger;
+	Poco::NotificationQueue& _sendQ;
+	bool _readonly;
+	bool _disposal;
+};
+
 

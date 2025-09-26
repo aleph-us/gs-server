@@ -1,5 +1,5 @@
 //
-// GsServerApp.cpp
+// gs-serverApp.cpp
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Copyright (C) 2021-2025 Aleph ONE Software Engineering LLC
@@ -35,6 +35,7 @@
 #include <iostream>
 #include "GSHTTPTask.h"
 #include "GSWorkerTask.h"
+#include "GSSenderTask.h"
 
 
 using namespace Poco;
@@ -150,21 +151,25 @@ protected:
 	{
 		if (!_helpRequested)
 		{
-			Poco::AsyncNotificationCenter nc;
-			NotificationQueue printNQ;
+			NotificationQueue convQ;
+			NotificationQueue sendQ;
 			TaskManager tm;
 
 			GSHTTPTask* pGSHTTP = nullptr;
 			GSWorkerTask* pWorkerTask = nullptr;
+			GSSenderTask* pSenderTask = nullptr;
 
 
 			try
 			{
-				pGSHTTP = new GSHTTPTask(config(), printNQ);
+				pGSHTTP = new GSHTTPTask(config(), convQ);
 				tm.start(pGSHTTP);
 
-				pWorkerTask = new GSWorkerTask(printNQ, logger(), config());
+				pWorkerTask = new GSWorkerTask(convQ, sendQ, logger(), config());
 				tm.start(pWorkerTask);
+
+				pSenderTask = new GSSenderTask(sendQ, logger(), config());
+				tm.start(pSenderTask);
 
 				std::string svcName = config().getString("service.name");
 				logger().information("Service %s running ...", svcName);
@@ -181,7 +186,7 @@ protected:
 			}
 			catch (...)
 			{
-				logger().error("Unknown error occured during startup. Exiting.");
+				logger().error("Unknown error occurred during startup. Exiting.");
 			}
 
 			tm.cancelAll();

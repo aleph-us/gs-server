@@ -31,22 +31,20 @@ namespace Poco
 }
 
 
-class PrintRunnable;
-
 class GSWorkerTask : public Poco::Task
 {
 public:
-	GSWorkerTask(Poco::NotificationQueue& printNQ, Poco::Logger& logger, Poco::Util::LayeredConfiguration& config);
+	GSWorkerTask(Poco::NotificationQueue& convQ, Poco::NotificationQueue& sendQ, Poco::Logger& logger, Poco::Util::LayeredConfiguration& config);
 	~GSWorkerTask();
 
 	void runTask();
 
 private:
-	void runPrint(PrintRunnable& print);
+	bool convertPCL(const std::vector<std::string>& gsArgs);
 
+	Poco::NotificationQueue& _convQ;
+	Poco::NotificationQueue& _sendQ;
 	Poco::Logger& _logger;
-	Poco::NotificationQueue& _printNQ;
-	std::string _printApp;
 	Poco::Util::LayeredConfiguration& _config;
 };
 

@@ -45,8 +45,9 @@ using namespace Poco::Util;
 class GSCmdHandler : public HTTPRequestHandler
 {
 public:
-	GSCmdHandler(Poco::NotificationQueue& nq)
-		: _nq(nq) 
+	GSCmdHandler(Poco::NotificationQueue& ConvQ)
+		: _convQ(ConvQ), _dir("/home/uros/Documents/GS_DIR")
+		//_dir(cfg.getString("filesDir", "temp/"))
 	{
 	}
 
@@ -56,10 +57,7 @@ public:
 			// Checking wether method is POST, if not respond as ERROR
 			if (req.getMethod() != HTTPRequest::HTTP_POST) 
 			{
-				resp.setStatus(HTTPResponse::HTTP_METHOD_NOT_ALLOWED);
-				resp.set("Allow", "POST");
-				resp.setContentType("text/plain");
-				resp.send() << "Method not allowed. Use POST.\n";
+				sendBadRequest(resp, "Method not allowed. Use POST.");
 				return;
 			}
 
@@ -67,8 +65,10 @@ public:
 			Poco::URI uri(req.getURI());
 			Poco::URI::QueryParameters qp = uri.getQueryParameters();
 
-			bool disposable = false; 
-			std::string outputFile;                // from sOutputFile=
+			auto job = std::make_shared<Job>();
+			std::string baseName;
+			Poco::Path pdfPath;
+			Poco::Path pclPath;
 			std::vector<std::string> printers;     // from print=ip:port/PCL, ip2:port2/PDF
 			std::vector<std::string> gsArgs;       // f.e. -q, -dNOPAUSE, -sDEVICE=pxlmono, sOutputFile= ...
 
@@ -77,12 +77,6 @@ public:
 				const std::string& k = kv.first;
 				const std::string& v = kv.second;
 
-				if (Poco::icompare(k, "disp") == 0) 
-				{
-					if (v == "1")
-						disposable = true;
-					continue;
-				}
 				if (Poco::icompare(k, "print") == 0) 
 				{
 					Poco::StringTokenizer st(v, ",;", Poco::StringTokenizer::TOK_TRIM | Poco::StringTokenizer::TOK_IGNORE_EMPTY);
@@ -92,8 +86,22 @@ public:
 				}
 				if (Poco::icompare(k, "sOutputFile") == 0) 
 				{
-					outputFile = v;
-					gsArgs.push_back("-sOutputFile=" + v);
+					baseName = v;
+					if(baseName.empty())
+					{
+						sendBadRequest(resp, "Missing file name");
+						return;
+					}
+					pdfPath = Poco::Path(_dir, baseName); 
+					pdfPath.setExtension("pdf");
+					job->pdfPath = pdfPath.toString();
+
+					pclPath = Poco::Path(_dir, baseName); 
+					pclPath.setExtension("pcl");
+					job->pclPath = pclPath.toString();
+
+					gsArgs.push_back(std::string("-sOutputFile=") + pclPath.toString());
+					gsArgs.push_back(pdfPath.toString());
 					continue;
 				}
 				// All the others are GS arg:
@@ -105,37 +113,34 @@ public:
 					gsArgs.push_back("-" + k + "=" + v);
 			}
 
+			if (gsArgs.empty()) 
+			{
+				sendBadRequest(resp, "Missing Ghostscript arguments");
+				return;
+			}
+
 			// 2) (Opcional) receive PDF body and store it on the location -> outputFile
 			bool hasBody = (req.getContentLength() != HTTPMessage::UNKNOWN_CONTENT_LENGTH && req.getContentLength() > 0);
-			if (hasBody) 
+			if (!hasBody) 
 			{
-				if (outputFile.empty()) 
-				{
-					resp.setStatus(HTTPResponse::HTTP_BAD_REQUEST);
-					resp.setContentType("text/plain");
-					resp.send() << "Missing sOutputFile for body upload\n";
-					return;
-				}
-				Poco::Path out(outputFile);
-				Poco::File(out.parent()).createDirectories();
-				std::ofstream ofs(out.toString(), std::ios::binary);
+				sendBadRequest(resp, "Missing PDF body");
+				return;
+			}
+			Poco::File(pdfPath.parent()).createDirectories();
+			{
+				std::ofstream ofs(pdfPath.toString(), std::ios::binary);
 				Poco::StreamCopier::copyStream(req.stream(), ofs);
-				ofs.close();
 			}
 
 			// 4) Enqueue in the print queue
 			if (printers.empty()) 
 			{
-				resp.setStatus(HTTPResponse::HTTP_OK);
-				resp.setContentType("text/plain");
-				resp.send() << "OK (no printers specified). Args parsed: " << gsArgs.size() << "\n";
+				sendBadRequest(resp, "Missing Printer list");
 				return;
 			}
-
-			for (const auto& prn : printers) 
-			{
-				_nq.enqueueNotification(new PrintNotification(prn, outputFile, disposable, gsArgs));
-			}
+			job->gsArgs = std::move(gsArgs);
+			job->printers = std::move(printers);
+			_convQ.enqueueNotification(new JobNotification(job));
 
 			// 5) Response to HTTP client
 			resp.setStatus(HTTPResponse::HTTP_OK);
@@ -159,32 +164,39 @@ public:
 	}
 
 private:
-	Poco::NotificationQueue& _nq;
+	void sendBadRequest(HTTPServerResponse& resp, const std::string& message)
+	{
+		resp.setStatus(HTTPResponse::HTTP_BAD_REQUEST);
+		resp.setContentType("text/plain");
+		resp.send() << message << "\n";
+	}
+	Poco::NotificationQueue& _convQ;
+	std::string _dir;
 };
 
 class SimpleHandlerFactory : public HTTPRequestHandlerFactory
 {
 public:
-	SimpleHandlerFactory(Poco::NotificationQueue& nq)
-		: _nq(nq) 
+	SimpleHandlerFactory(Poco::NotificationQueue& convQ)
+		: _convQ(convQ)
 	{
 	}
 
 	HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& req) override
 	{
-		return new GSCmdHandler(_nq);
+		return new GSCmdHandler(_convQ);
 	}
 
 private:
-	Poco::NotificationQueue& _nq;
+	Poco::NotificationQueue& _convQ;
 };
 
 // ---- GSHTTPTask ----
 
-GSHTTPTask::GSHTTPTask(Configuration& cfg, Poco::NotificationQueue& nq, const std::string& taskName)
+GSHTTPTask::GSHTTPTask(Configuration& cfg, Poco::NotificationQueue& convQ, const std::string& taskName)
 	: Poco::Task(taskName)
 	, _serverSocket(Poco::Net::SocketAddress(cfg.getString("http.server.address", "0.0.0.0:9980")))
-	, _pReqHandlerFactory(new SimpleHandlerFactory(nq))
+	, _pReqHandlerFactory(new SimpleHandlerFactory(convQ))
 	, _httpServer(_pReqHandlerFactory, _serverSocket, new HTTPServerParams)
 	, _logger(Poco::Logger::get(name()))
 {
