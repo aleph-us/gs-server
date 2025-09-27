@@ -19,28 +19,30 @@
 //
 
 
+#ifndef GSSenderTask_INCLUDED
+#define GSSenderTask_INCLUDED
+
+
 #include "Poco/Task.h"
-#include "Poco/Notification.h"
+#include "Poco/Logger.h"
+#include "Poco/NotificationQueue.h"
 #include "Poco/Util/LayeredConfiguration.h"
 #include "GSNotification.h"
-
-namespace Poco
-{
-	class Logger;
-	class NotificationQueue;
-}
 
 class GSSenderTask : public Poco::Task
 {
 public:
 	GSSenderTask(Poco::NotificationQueue& sendQ, Poco::Logger& logger, Poco::Util::LayeredConfiguration& config);
+	GSSenderTask(const GSSenderTask&) = delete;
+	GSSenderTask& operator=(const GSSenderTask&) = delete;
+	GSSenderTask(GSSenderTask&&) = delete;
+	GSSenderTask& operator=(GSSenderTask&&) = delete;
+
 	~GSSenderTask();
 
 	void runTask();
 
 private:
-
-	bool sendFile(const std::string& pclfile, const std::string& printer);
 
 	Poco::Logger& _logger;
 	Poco::NotificationQueue& _sendQ;
@@ -48,4 +50,4 @@ private:
 	bool _disposal;
 };
 
-
+#endif // GSSenderTask_INCLUDED

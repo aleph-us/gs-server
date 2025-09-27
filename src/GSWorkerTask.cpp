@@ -19,31 +19,21 @@
 //
 
 
-
 #include "GSWorkerTask.h"
 #include "GSNotification.h"
+
+#include "Poco/Notification.h"
 #include "Poco/NotificationQueue.h"
 #include "Poco/Logger.h"
-#include "Poco/Thread.h"
-#include "Poco/Process.h"
-#include "Poco/Path.h"
-#include "Poco/File.h"
-#include "Poco/Stopwatch.h"
-#include "Poco/StringTokenizer.h"
-#include "Poco/String.h"
-#include "Poco/FileStream.h"
-#include "Poco/StreamCopier.h"
-#include "Poco/Net/StreamSocket.h"
-#include "Poco/Net/SocketStream.h"
-#include "Poco/Net/SocketAddress.h"
-#include "Poco/Util/Application.h"
+
+#include <vector>
+#include <string>
+
 #include "iapi.h"
 #include "ierrors.h"
-#include <sstream>
 
 
 using namespace Poco;
-using namespace Poco::Net;
 using namespace Poco::Util;
 
 

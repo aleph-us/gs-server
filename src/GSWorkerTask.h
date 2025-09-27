@@ -19,25 +19,31 @@
 //
 
 
+#ifndef GSWorkerTask_INCLUDED
+#define GSWorkerTask_INCLUDED
+
+
 #include "Poco/Task.h"
-#include "Poco/Notification.h"
+#include "Poco/Logger.h"
+#include "Poco/NotificationQueue.h"
 #include "Poco/Util/LayeredConfiguration.h"
 #include "GSNotification.h"
-
-namespace Poco
-{
-	class Logger;
-	class NotificationQueue;
-}
+#include <vector>
 
 
 class GSWorkerTask : public Poco::Task
 {
 public:
-	GSWorkerTask(Poco::NotificationQueue& convQ, Poco::NotificationQueue& sendQ, Poco::Logger& logger, Poco::Util::LayeredConfiguration& config);
+	GSWorkerTask(Poco::NotificationQueue& convQ, Poco::NotificationQueue& sendQ, 
+		Poco::Logger& logger, Poco::Util::LayeredConfiguration& config);
+	GSWorkerTask(const GSWorkerTask&) = delete;
+	GSWorkerTask& operator=(const GSWorkerTask&) = delete;
+	GSWorkerTask(GSWorkerTask&&) = delete;
+	GSWorkerTask& operator=(GSWorkerTask&&) = delete;
+	
 	~GSWorkerTask();
 
-	void runTask();
+	void runTask() override;
 
 private:
 	bool convertPCL(const std::vector<std::string>& gsArgs);
@@ -48,4 +54,4 @@ private:
 	Poco::Util::LayeredConfiguration& _config;
 };
 
-
+#endif // GSWorkerTask_INCLUDED

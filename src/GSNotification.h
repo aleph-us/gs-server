@@ -24,12 +24,7 @@
 #define GSNotification_INCLUDED
 
 #include "Poco/Notification.h"
-#include "Poco/Util/LayeredConfiguration.h"
-#include "Poco/NotificationQueue.h"
-#include "Poco/Logger.h"
 #include "Poco/String.h"
-#include "Poco/StringTokenizer.h"
-#include "Poco/Util/Application.h"
 #include <vector>
 #include <memory>
 

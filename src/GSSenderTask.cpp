@@ -19,31 +19,93 @@
 //
 
 
+#include "GSSenderTask.h"
 #include "GSNotification.h"
-#include "Poco/NotificationQueue.h"
+
+#include "Poco/Notification.h"
+#include "Poco/AutoPtr.h"
 #include "Poco/Logger.h"
 #include "Poco/Thread.h"
-#include "Poco/Process.h"
-#include "Poco/Path.h"
+#include "Poco/Timespan.h"
 #include "Poco/File.h"
-#include "Poco/Stopwatch.h"
-#include "Poco/StringTokenizer.h"
-#include "Poco/String.h"
 #include "Poco/FileStream.h"
 #include "Poco/StreamCopier.h"
+
 #include "Poco/Net/StreamSocket.h"
 #include "Poco/Net/SocketStream.h"
 #include "Poco/Net/SocketAddress.h"
-#include "Poco/Util/Application.h"
-#include "iapi.h"
-#include "ierrors.h"
-#include <sstream>
-#include "GSSenderTask.h"
+
+#include "Poco/String.h"
+#include "Poco/StringTokenizer.h"
+#include <vector>
+#include <memory>
+#include <atomic>
 
 
 using namespace Poco;
 using namespace Poco::Net;
 using namespace Poco::Util;
+
+
+//
+// Send Runnable
+//
+
+class SendRunnable : public Poco::Runnable {
+public:
+	SendRunnable(Logger& logger, const std::string& file, const std::string& printer, bool readonly)
+		: _logger(logger), _file(file), _printer(printer), _readonly(readonly) 
+	{
+	}
+
+	void run() override 
+	{
+		if (!Poco::File(_file).exists()) 
+		{
+			_logger.error("File [%s] does not exist.", _file);
+			_ok = false;
+			return;
+		}
+
+		try 
+		{
+			if (_readonly) 
+			{ 
+				_ok = true; 
+				_logger.information("READONLY: Would send [%s] to [%s] ...", _file, _printer);
+				return; 
+			}
+
+			_logger.information("Sending [%s] to [%s] ...", _file, _printer);
+			Poco::FileInputStream fis(_file);
+			Poco::Net::StreamSocket sock;
+			sock.connect(Poco::Net::SocketAddress(_printer), Poco::Timespan(5,0));
+			sock.setSendTimeout(Poco::Timespan(30,0));
+			sock.setReceiveTimeout(Poco::Timespan(30,0));
+			Poco::Net::SocketStream ss(sock);
+			Poco::StreamCopier::copyStream(fis, ss);
+			_logger.information("Sending [%s] to [%s] succesfully completed.", _file, _printer);
+			_ok = true;
+		} 
+		catch (...) 
+		{
+			_ok = false;
+		}
+	}
+
+	bool ok() const 
+	{ 
+		return _ok; 
+	}
+
+private:
+	Poco::Logger& _logger;
+	std::string _file;
+	std::string _printer;
+	bool _readonly{true};
+	std::atomic<bool> _ok{false};
+};
+
 
 
 GSSenderTask::GSSenderTask(Poco::NotificationQueue& sendQ, Logger& logger, LayeredConfiguration& config) :
@@ -53,6 +115,8 @@ GSSenderTask::GSSenderTask(Poco::NotificationQueue& sendQ, Logger& logger, Layer
 	_readonly(config.getBool("readonly", true)),
 	_disposal(config.getBool("disposal", false))
 {
+	if (_disposal)
+		_logger.warning("Files will be deleted after successful print.");
 }
 
 GSSenderTask::~GSSenderTask()
@@ -76,29 +140,49 @@ void GSSenderTask::runTask()
 				}
 
 				JobPtr job = jn->job;	
-				_logger.information("Sender got job: PCL=[%s], printers=%zu",
+				_logger.information("Sender got job: PCL=[%s], printers=%z",
 					job->pclPath, job->printers.size());
 				
-				bool allOk = true;
-				for (const auto& prn : job->printers) 
+
+				std::vector<std::unique_ptr<SendRunnable>> runners;
+				std::vector<std::unique_ptr<Poco::Thread>> threads;
+				runners.reserve(job->printers.size());
+				threads.reserve(job->printers.size());
+
+				for (size_t i = 0; i < job->printers.size(); ++i) 
 				{
-					bool ok = sendFile(job->pclPath, prn);
-					_logger.information(" -> Printer: %s", prn);
-					if (!ok) 
+					runners.emplace_back(new SendRunnable(_logger, job->pclPath, job->printers[i], _readonly));
+					threads.emplace_back(std::make_unique<Poco::Thread>());
+					threads.back()->start(*runners.back());
+					_logger.information("Printing Job started to %s", job->printers[i]);
+				}
+				
+				bool allOk = true;
+				for (size_t i = 0; i < threads.size(); ++i) 
+				{
+					threads[i]->join();
+					if (!runners[i]->ok()) 
 					{
+						_logger.error("Failed sending to %s", job->printers[i]);
 						allOk = false;
-						_logger.error("Failed to send [%s] to printer [%s]",
-							job->pclPath, prn);
 					}
 				}
+
+				// upon successfully printing, the files will be deleted 
+				// once disposal is true in properties file
 				if (allOk && _disposal) 
 				{
 					try 
 					{
+
 						Poco::File(job->pclPath).remove();
 						Poco::File(job->pdfPath).remove();
 						_logger.information("Deleted files [%s] and [%s]",
 							job->pclPath, job->pdfPath);
+					}
+					catch (Poco::FileNotFoundException& ex)
+					{
+						_logger.error("File not found during cleanup: %s", ex.displayText());
 					}
 					catch (Poco::Exception& ex) 
 					{
@@ -116,33 +200,5 @@ void GSSenderTask::runTask()
 			_logger.error(ex.what());
 		}
 	}
-}
-
-
-bool GSSenderTask::sendFile(const std::string& pclfile, const std::string& printer)
-{
-	try
-	{
-		if (!_readonly)
-		{
-			_logger.information("Sending [%s] to [%s] ...", pclfile, printer);
-			FileInputStream fis(pclfile);
-			StreamSocket sock;
-			Timespan tout = 5000000;
-			sock.connect(SocketAddress(printer), tout);
-			SocketStream str(sock);
-			StreamCopier::copyStream(fis, str);
-			if (_logger.trace())
-				_logger.trace("Sending [%s] to [%s] succesfully completed.", pclfile, printer);
-		}
-		else
-			_logger.information("READONLY: Would send [%s] to [%s] ...", pclfile, printer);
-	}
-	catch (Exception& exc)
-	{
-		_logger.error(exc.displayText());
-		return false;
-	}
-	return true;
 }
 

@@ -20,22 +20,24 @@
 
 
 #include "GSHTTPTask.h"
+#include "GSNotification.h"
+
+
+#include "Poco/NotificationQueue.h"
 #include "Poco/Net/HTTPServerParams.h"
 #include "Poco/Net/HTTPServerRequest.h"
 #include "Poco/Net/HTTPServerResponse.h"
 #include "Poco/Net/HTTPRequestHandler.h"
-#include "Poco/Net/HTTPRequestHandlerFactory.h"
 #include "Poco/Net/HTTPMessage.h"
-#include "Poco/Util/LayeredConfiguration.h"
-#include "Poco/Logger.h"
-#include "Poco/String.h"
-#include "Poco/Net/HTMLForm.h"
-#include "Poco/Net/PartHandler.h"
-#include "Poco/File.h"
-#include "Poco/Path.h"
+#include "Poco/Net/SocketAddress.h"
 #include "Poco/URI.h"
-#include <fstream>
+#include "Poco/Path.h"
+#include "Poco/File.h"
 #include "Poco/StreamCopier.h"
+#include "Poco/StringTokenizer.h"
+
+#include <vector>
+#include <fstream> 
 
 using namespace Poco;
 using namespace Poco::Net;

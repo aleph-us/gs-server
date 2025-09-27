@@ -25,14 +25,13 @@
 #include "Poco/Task.h"
 #include "Poco/Logger.h"
 #include "Poco/Event.h"
-#include "Poco/Mutex.h"
+#include "Poco/SharedPtr.h"
 #include "Poco/Util/LayeredConfiguration.h"
-#include "Poco/Net/SocketAddress.h"
 #include "Poco/Net/ServerSocket.h"
 #include "Poco/Net/HTTPServer.h"
+#include "Poco/Net/HTTPRequestHandlerFactory.h"
 #include "Poco/NotificationQueue.h"
 #include <atomic>
-#include "GSNotification.h"
 
 class GSHTTPTask : public Poco::Task
 {
