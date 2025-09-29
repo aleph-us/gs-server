@@ -140,8 +140,8 @@ void GSSenderTask::runTask()
 				}
 
 				JobPtr job = jn->job;	
-				_logger.information("Sender got job: PCL=[%s], printers=%z",
-					job->pclPath, job->printers.size());
+				_logger.information("Sender got job: %s=[%s], printers=%z",
+					job->formatLabel, job->outputPath, job->printers.size());
 				
 
 				std::vector<std::unique_ptr<SendRunnable>> runners;
@@ -151,7 +151,7 @@ void GSSenderTask::runTask()
 
 				for (size_t i = 0; i < job->printers.size(); ++i) 
 				{
-					runners.emplace_back(new SendRunnable(_logger, job->pclPath, job->printers[i], _readonly));
+					runners.emplace_back(new SendRunnable(_logger, job->outputPath, job->printers[i], _readonly));
 					threads.emplace_back(std::make_unique<Poco::Thread>());
 					threads.back()->start(*runners.back());
 					_logger.information("Printing Job started to %s", job->printers[i]);
@@ -175,10 +175,10 @@ void GSSenderTask::runTask()
 					try 
 					{
 
-						Poco::File(job->pclPath).remove();
-						Poco::File(job->pdfPath).remove();
+						Poco::File(job->outputPath).remove();
+						Poco::File(job->inputPath).remove();
 						_logger.information("Deleted files [%s] and [%s]",
-							job->pclPath, job->pdfPath);
+							job->outputPath, job->inputPath);
 					}
 					catch (Poco::FileNotFoundException& ex)
 					{

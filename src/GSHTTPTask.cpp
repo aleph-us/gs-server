@@ -38,6 +38,8 @@
 
 #include <vector>
 #include <fstream> 
+#include <algorithm>
+#include <cctype>
 
 using namespace Poco;
 using namespace Poco::Net;
@@ -48,7 +50,7 @@ class GSCmdHandler : public HTTPRequestHandler
 {
 public:
 	GSCmdHandler(Poco::NotificationQueue& ConvQ, const std::string& filesDir)
-		: _convQ(ConvQ), _dir(filesDir)
+		: _convQ(ConvQ), _dir(filesDir), _logger(Poco::Logger::get("GSHTTP"))
 	{
 	}
 
@@ -67,11 +69,14 @@ public:
 			Poco::URI::QueryParameters qp = uri.getQueryParameters();
 
 			auto job = std::make_shared<Job>();
+			
+			Poco::Path inputPath;
+			Poco::Path outputPath;
+			std::string ext;						// pcl, jpg, png, ...
+			std::string device;						// pxlmono, pxlcolor, png16m, jpeg, ...
 			std::string baseName;
-			Poco::Path pdfPath;
-			Poco::Path pclPath;
-			std::vector<std::string> printers;     // from print=ip:port, ip2:port
-			std::vector<std::string> gsArgs;       // f.e. -q, -dNOPAUSE, -sDEVICE=pxlmono, sOutputFile= ...
+			std::vector<std::string> printers;		// from print=ip:port, ip2:port, ...
+			std::vector<std::string> gsArgs;		// f.e. -q, -dNOPAUSE, -sDEVICE=pxlmono, sOutputFile= ...
 
 			for (auto& kv : qp) 
 			{
@@ -85,24 +90,14 @@ public:
 						printers.push_back(s);
 					continue;
 				}
+				if(Poco::icompare(k, "sDEVICE") == 0)
+				{
+					device = v;
+					continue;
+				}
 				if (Poco::icompare(k, "sOutputFile") == 0) 
 				{
-					baseName = v;
-					if(baseName.empty())
-					{
-						sendBadRequest(resp, "Missing file name");
-						return;
-					}
-					pdfPath = Poco::Path(_dir, baseName); 
-					pdfPath.setExtension("pdf");
-					job->pdfPath = pdfPath.toString();
-
-					pclPath = Poco::Path(_dir, baseName); 
-					pclPath.setExtension("pcl");
-					job->pclPath = pclPath.toString();
-
-					gsArgs.push_back(std::string("-sOutputFile=") + pclPath.toString());
-					gsArgs.push_back(pdfPath.toString());
+					baseName = Poco::Path(v).getFileName();
 					continue;
 				}
 				// All the others are GS arg:
@@ -114,11 +109,43 @@ public:
 					gsArgs.push_back("-" + k + "=" + v);
 			}
 
-			if (gsArgs.empty()) 
+			if(device.empty())
 			{
-				sendBadRequest(resp, "Missing Ghostscript arguments");
+				sendBadRequest(resp, "Missing device name");
 				return;
 			}
+
+			if(baseName.empty())
+			{
+				sendBadRequest(resp, "Missing file name");
+				return;
+			}
+
+			// inputPath
+			inputPath = Poco::Path(_dir, baseName); 
+			inputPath.setExtension("pdf");
+			job->inputPath = inputPath.toString();
+
+			// extension determination
+			ext = mapDevice(device);
+			if(ext == "none")
+			{
+				sendBadRequest(resp, "Extenstion not supported");
+				return;
+			}
+
+			// outputPath
+			outputPath = Poco::Path(_dir, baseName); 
+			outputPath.setExtension(ext);
+			job->outputPath = outputPath.toString();
+
+			// finish gsArgs vector - path parameters required to be at the end
+			gsArgs.push_back(std::string("-sDEVICE=") + device);
+			gsArgs.push_back(std::string("-sOutputFile=") + outputPath.toString());
+			gsArgs.push_back(inputPath.toString());
+
+			std::transform(ext.begin(), ext.end(), ext.begin(), ::toupper);
+			job->formatLabel = ext;  // PCL, PDF, JPG, ...
 
 			// 2) (Opcional) receive PDF body and store it on the location -> outputFile
 			bool hasBody = (req.getContentLength() != HTTPMessage::UNKNOWN_CONTENT_LENGTH && req.getContentLength() > 0);
@@ -127,9 +154,9 @@ public:
 				sendBadRequest(resp, "Missing PDF body");
 				return;
 			}
-			Poco::File(pdfPath.parent()).createDirectories();
+			Poco::File(inputPath.parent()).createDirectories();
 			{
-				std::ofstream ofs(pdfPath.toString(), std::ios::binary);
+				std::ofstream ofs(inputPath.toString(), std::ios::binary);
 				Poco::StreamCopier::copyStream(req.stream(), ofs);
 			}
 
@@ -159,16 +186,41 @@ public:
 		}
 	}
 
+	std::string mapDevice(const std::string d);
+
 private:
 	void sendBadRequest(HTTPServerResponse& resp, const std::string& message)
 	{
 		resp.setStatus(HTTPResponse::HTTP_BAD_REQUEST);
 		resp.setContentType("text/plain");
-		resp.send() << message << "\n";
+		auto& os = resp.send();
+		os << message << "\n";
+		os.flush();
 	}
 	Poco::NotificationQueue& _convQ;
 	std::string _dir;
+	Poco::Logger& _logger;
 };
+
+inline std::string GSCmdHandler::mapDevice(const std::string d)
+{
+	// PCL
+	if (d == "pxlmono" || d == "pxlcolor" || d == "pcl3" || d == "pclm" || d == "pclm8")
+		return "pcl";
+
+	// image
+	if (d == "png16m" || d == "png16" || d == "png48" || d == "pngalpha" || d == "pnggray" || d == "pngmono")
+		return "png";
+
+	if (d == "jpeg" || d == "jpeggray" || d == "jpegcmyk")
+		return "jpg";
+
+	// PDF
+	if (d == "pdfwrite")
+		return "pdf";
+
+	return "none";
+}
 
 class SimpleHandlerFactory : public HTTPRequestHandlerFactory
 {

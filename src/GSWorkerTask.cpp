@@ -69,7 +69,7 @@ void GSWorkerTask::runTask()
 					const bool ok = convert(job->gsArgs);
 					if (ok) 
 					{
-						_logger.information("PDF->PCL done: %s", job->pclPath);
+						_logger.information("PDF->%s done: %s", job->formatLabel, job->outputPath);
 						if(!job->printers.empty())
 						{
 							_sendQ.enqueueNotification(new JobNotification(job));
@@ -80,7 +80,7 @@ void GSWorkerTask::runTask()
 					} 
 					else 
 					{
-						_logger.error("PDF->PCL failed for job %s", job->jobId);
+						_logger.error("PDF->%s failed for job %s", job->formatLabel, job->outputPath);
 					}
 				}
 				else 

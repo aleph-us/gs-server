@@ -31,8 +31,9 @@
 
 struct Job 
 {
-	std::string pdfPath;
-	std::string pclPath;
+	std::string inputPath;
+	std::string outputPath;
+	std::string formatLabel;
 	std::vector<std::string> gsArgs;
 	std::vector<std::string> printers;
 	std::string jobId; 
