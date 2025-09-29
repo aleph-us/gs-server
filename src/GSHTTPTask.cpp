@@ -29,6 +29,7 @@
 #include "Poco/Net/HTTPServerResponse.h"
 #include "Poco/Net/HTTPRequestHandler.h"
 #include "Poco/Net/HTTPMessage.h"
+#include "Poco/NullStream.h"
 #include "Poco/Net/SocketAddress.h"
 #include "Poco/URI.h"
 #include "Poco/Path.h"
@@ -60,7 +61,7 @@ public:
 			// Checking wether method is POST, if not respond as ERROR
 			if (req.getMethod() != HTTPRequest::HTTP_POST) 
 			{
-				sendBadRequest(resp, "Method not allowed. Use POST.");
+				sendBadRequest(req, resp, HTTPResponse::HTTP_BAD_REQUEST, "Method not allowed. Use POST.");
 				return;
 			}
 
@@ -111,13 +112,13 @@ public:
 
 			if(device.empty())
 			{
-				sendBadRequest(resp, "Missing device name");
+				sendBadRequest(req, resp, HTTPResponse::HTTP_BAD_REQUEST, "Missing device name");
 				return;
 			}
 
 			if(baseName.empty())
 			{
-				sendBadRequest(resp, "Missing file name");
+				sendBadRequest(req, resp, HTTPResponse::HTTP_BAD_REQUEST, "Missing file name");
 				return;
 			}
 
@@ -130,7 +131,7 @@ public:
 			ext = mapDevice(device);
 			if(ext == "none")
 			{
-				sendBadRequest(resp, "Extenstion not supported");
+				sendBadRequest(req, resp, HTTPResponse::HTTP_BAD_REQUEST, "Extenstion not supported");
 				return;
 			}
 
@@ -151,7 +152,7 @@ public:
 			bool hasBody = (req.getContentLength() != HTTPMessage::UNKNOWN_CONTENT_LENGTH && req.getContentLength() > 0);
 			if (!hasBody) 
 			{
-				sendBadRequest(resp, "Missing PDF body");
+				sendBadRequest(req, resp, HTTPResponse::HTTP_BAD_REQUEST, "Missing PDF body");
 				return;
 			}
 			Poco::File(inputPath.parent()).createDirectories();
@@ -174,24 +175,37 @@ public:
 		}
 		catch (Poco::Exception& ex) 
 		{
-			resp.setStatus(HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
-			resp.setContentType("text/plain");
-			resp.send() << ex.displayText() << "\n";
+			sendBadRequest(req, resp, HTTPResponse::HTTP_INTERNAL_SERVER_ERROR, ex.displayText());
 		}
 		catch (std::exception& ex) 
 		{
-			resp.setStatus(HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
-			resp.setContentType("text/plain");
-			resp.send() << ex.what() << "\n";
+			sendBadRequest(req, resp, HTTPResponse::HTTP_INTERNAL_SERVER_ERROR, ex.what());
 		}
 	}
 
 	std::string mapDevice(const std::string d);
 
 private:
-	void sendBadRequest(HTTPServerResponse& resp, const std::string& message)
+	void sendBadRequest(Poco::Net::HTTPServerRequest& req,
+						Poco::Net::HTTPServerResponse& resp,
+						Poco::Net::HTTPResponse::HTTPStatus st, 
+						const std::string& message)
 	{
-		resp.setStatus(HTTPResponse::HTTP_BAD_REQUEST);
+		try 
+		{
+			const bool chunked = Poco::icompare(req.getTransferEncoding(),"chunked")==0;
+			if (chunked || (req.getContentLength()!=Poco::Net::HTTPMessage::UNKNOWN_CONTENT_LENGTH
+					&& req.getContentLength()>0)) 
+			{
+				Poco::NullOutputStream nos;
+				Poco::StreamCopier::copyStream(req.stream(), nos); // drain
+			}
+		} 
+		catch (...) 
+		{
+		}
+
+		resp.setStatus(st);
 		resp.setContentType("text/plain");
 		auto& os = resp.send();
 		os << message << "\n";
@@ -214,10 +228,6 @@ inline std::string GSCmdHandler::mapDevice(const std::string d)
 
 	if (d == "jpeg" || d == "jpeggray" || d == "jpegcmyk")
 		return "jpg";
-
-	// PDF
-	if (d == "pdfwrite")
-		return "pdf";
 
 	return "none";
 }
