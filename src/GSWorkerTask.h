@@ -46,7 +46,7 @@ public:
 	void runTask() override;
 
 private:
-	bool convertPCL(const std::vector<std::string>& gsArgs);
+	bool convert(const std::vector<std::string>& gsArgs);
 
 	Poco::NotificationQueue& _convQ;
 	Poco::NotificationQueue& _sendQ;

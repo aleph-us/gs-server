@@ -66,11 +66,17 @@ void GSWorkerTask::runTask()
 				{
 					auto job = jn->job;
 
-					const bool ok = convertPCL(job->gsArgs);
+					const bool ok = convert(job->gsArgs);
 					if (ok) 
 					{
 						_logger.information("PDF->PCL done: %s", job->pclPath);
-						_sendQ.enqueueNotification(new JobNotification(job));
+						if(!job->printers.empty())
+						{
+							_sendQ.enqueueNotification(new JobNotification(job));
+						}
+						else
+							_logger.warning("No listed printer, conversion only");
+						
 					} 
 					else 
 					{
@@ -92,7 +98,7 @@ void GSWorkerTask::runTask()
 	}
 }
 
-bool GSWorkerTask::convertPCL(const std::vector<std::string>& gsArgs)
+bool GSWorkerTask::convert(const std::vector<std::string>& gsArgs)
 {
 	void* minst = NULL;
 	int code, code1;
@@ -106,7 +112,6 @@ bool GSWorkerTask::convertPCL(const std::vector<std::string>& gsArgs)
 
 	int gsargc = static_cast<int>(argv.size());
 
-	// _logger.information("Converting [%s] to [%s] ...", _file, PCL_FILE);
 	code = gsapi_new_instance(&minst, NULL);
 	if (code < 0)
 	{

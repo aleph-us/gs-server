@@ -134,11 +134,6 @@ public:
 			}
 
 			// 4) Enqueue in the print queue
-			if (printers.empty()) 
-			{
-				sendBadRequest(resp, "Missing Printer list");
-				return;
-			}
 			job->gsArgs = std::move(gsArgs);
 			job->printers = std::move(printers);
 			_convQ.enqueueNotification(new JobNotification(job));
