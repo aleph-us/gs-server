@@ -47,9 +47,8 @@ using namespace Poco::Util;
 class GSCmdHandler : public HTTPRequestHandler
 {
 public:
-	GSCmdHandler(Poco::NotificationQueue& ConvQ)
-		: _convQ(ConvQ), _dir("/home/uros/Documents/GS_DIR")
-		//_dir(cfg.getString("filesDir", "temp/"))
+	GSCmdHandler(Poco::NotificationQueue& ConvQ, const std::string& filesDir)
+		: _convQ(ConvQ), _dir(filesDir)
 	{
 	}
 
@@ -71,7 +70,7 @@ public:
 			std::string baseName;
 			Poco::Path pdfPath;
 			Poco::Path pclPath;
-			std::vector<std::string> printers;     // from print=ip:port/PCL, ip2:port2/PDF
+			std::vector<std::string> printers;     // from print=ip:port, ip2:port
 			std::vector<std::string> gsArgs;       // f.e. -q, -dNOPAUSE, -sDEVICE=pxlmono, sOutputFile= ...
 
 			for (auto& kv : qp) 
@@ -178,19 +177,23 @@ private:
 
 class SimpleHandlerFactory : public HTTPRequestHandlerFactory
 {
+
 public:
-	SimpleHandlerFactory(Poco::NotificationQueue& convQ)
-		: _convQ(convQ)
+	using Configuration = Poco::Util::LayeredConfiguration;
+	
+	SimpleHandlerFactory(Poco::NotificationQueue& convQ, Configuration& cfg)
+		: _convQ(convQ), _filesDir(cfg.getString("filesDir"))
 	{
 	}
 
 	HTTPRequestHandler* createRequestHandler(const HTTPServerRequest& req) override
 	{
-		return new GSCmdHandler(_convQ);
+		return new GSCmdHandler(_convQ, _filesDir);
 	}
 
 private:
 	Poco::NotificationQueue& _convQ;
+	std::string _filesDir;
 };
 
 // ---- GSHTTPTask ----
@@ -198,7 +201,7 @@ private:
 GSHTTPTask::GSHTTPTask(Configuration& cfg, Poco::NotificationQueue& convQ, const std::string& taskName)
 	: Poco::Task(taskName)
 	, _serverSocket(Poco::Net::SocketAddress(cfg.getString("http.server.address", "0.0.0.0:9980")))
-	, _pReqHandlerFactory(new SimpleHandlerFactory(convQ))
+	, _pReqHandlerFactory(new SimpleHandlerFactory(convQ, cfg))
 	, _httpServer(_pReqHandlerFactory, _serverSocket, new HTTPServerParams)
 	, _logger(Poco::Logger::get(name()))
 {

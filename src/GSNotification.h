@@ -29,14 +29,8 @@
 #include <memory>
 
 
-namespace Poco
+struct Job 
 {
-	class Logger;
-	class NotificationQueue;
-}
-
-
-struct Job {
 	std::string pdfPath;
 	std::string pclPath;
 	std::vector<std::string> gsArgs;
@@ -46,7 +40,8 @@ struct Job {
 using JobPtr = std::shared_ptr<Job>;
 
 
-class JobNotification : public Poco::Notification {
+class JobNotification : public Poco::Notification 
+{
 public:
 	JobNotification(JobPtr j) : 
 		job(std::move(j)) 

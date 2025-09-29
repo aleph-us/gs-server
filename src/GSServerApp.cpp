@@ -1,5 +1,5 @@
 //
-// gs-serverApp.cpp
+//GSServerApp.cpp
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Copyright (C) 2021-2025 Aleph ONE Software Engineering LLC
@@ -43,17 +43,17 @@ using namespace Poco::Util;
 using namespace Poco::Data;
 
 
-class GsServerApp: public Poco::Util::ServerApplication
+class GSServerApp: public Poco::Util::ServerApplication
 	/// Main application class.
 	/// Can run as console application, or background service.
 {
 public:
-	GsServerApp()
+	GSServerApp()
 	{
 	}
 
 
-	~GsServerApp()
+	~GSServerApp()
 	{
 	}
 
@@ -108,14 +108,14 @@ protected:
 			Option("help", "h", "display help information on command line arguments")
 			.required(false)
 			.repeatable(false)
-			.callback(OptionCallback<GsServerApp>(this, &GsServerApp::handleHelp)));
+			.callback(OptionCallback<GSServerApp>(this, &GSServerApp::handleHelp)));
 
 			options.addOption(
 				Option("config-file", "c", "Load configuration data from a file.")
 					.required(false)
 					.repeatable(true)
 					.argument("file")
-					.callback(OptionCallback<GsServerApp>(this, &GsServerApp::handleConfig)));
+					.callback(OptionCallback<GSServerApp>(this, &GSServerApp::handleConfig)));
 	}
 
 
@@ -210,4 +210,4 @@ private:
 };
 
 
-POCO_SERVER_MAIN(GsServerApp)
+POCO_SERVER_MAIN(GSServerApp)
