@@ -56,6 +56,7 @@ private:
 	std::atomic<bool> _stop{false};
 	Poco::Net::ServerSocket _serverSocket;
 	Poco::SharedPtr<Poco::Net::HTTPRequestHandlerFactory> _pReqHandlerFactory;
+	Poco::Net::HTTPServerParams::Ptr   _httpParams;
 	Poco::Net::HTTPServer _httpServer;
 	Poco::Event _event;
 	Poco::Logger& _logger;

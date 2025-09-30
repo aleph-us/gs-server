@@ -167,10 +167,10 @@ public:
 			_convQ.enqueueNotification(new JobNotification(job));
 
 			// 5) Response to HTTP client
-			resp.setStatus(HTTPResponse::HTTP_OK);
+			resp.setStatusAndReason(HTTPResponse::HTTP_OK);
 			resp.setContentType("text/plain");
 			auto& os = resp.send();
-			os << "OK enqueued " << printers.size() << " job(s)\n";
+			os << "OK enqueued " << job->printers.size() << " job(s)\n";
 			os.flush();
 		}
 		catch (Poco::Exception& ex) 
@@ -205,7 +205,7 @@ private:
 		{
 		}
 
-		resp.setStatus(st);
+		resp.setStatusAndReason(st);
 		resp.setContentType("text/plain");
 		auto& os = resp.send();
 		os << message << "\n";
@@ -259,9 +259,13 @@ GSHTTPTask::GSHTTPTask(Configuration& cfg, Poco::NotificationQueue& convQ, const
 	: Poco::Task(taskName)
 	, _serverSocket(Poco::Net::SocketAddress(cfg.getString("http.server.address", "0.0.0.0:9980")))
 	, _pReqHandlerFactory(new SimpleHandlerFactory(convQ, cfg))
-	, _httpServer(_pReqHandlerFactory, _serverSocket, new HTTPServerParams)
+	, _httpParams(new Poco::Net::HTTPServerParams)
+	, _httpServer(_pReqHandlerFactory, _serverSocket, _httpParams)
 	, _logger(Poco::Logger::get(name()))
 {
+	_httpParams->setMaxQueued(cfg.getInt("http.server.maxQueued", 100));
+	_httpParams->setMaxThreads(cfg.getInt("http.server.maxThreads", 16));
+
 	_httpServer.start();
 	_logger.information("%s created, listening on %s.", name(), _serverSocket.address().toString());
 }
