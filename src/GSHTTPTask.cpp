@@ -65,14 +65,14 @@ public:
 				return;
 			}
 
+			_logger.debug("Incoming query: %s", req.getURI());
+
 			// Query Parse
 			Poco::URI uri(req.getURI());
 			Poco::URI::QueryParameters qp = uri.getQueryParameters();
 
 			auto job = std::make_shared<Job>();
 			
-			Poco::Path inputPath;
-			Poco::Path outputPath;
 			std::string ext;						// pcl, jpg, png, ...
 			std::string device;						// pxlmono, pxlcolor, png16m, jpeg, ...
 			std::string baseName;
@@ -83,6 +83,8 @@ public:
 			{
 				const std::string& k = kv.first;
 				const std::string& v = kv.second;
+
+				_logger.debug("Query param: [%s] = [%s]", kv.first, kv.second);
 
 				if (Poco::icompare(k, "print") == 0) 
 				{
@@ -99,6 +101,7 @@ public:
 				if (Poco::icompare(k, "sOutputFile") == 0) 
 				{
 					baseName = Poco::Path(v).getFileName();
+					_logger.debug("Base name: %s", baseName);
 					continue;
 				}
 				// All the others are GS arg:
@@ -123,8 +126,7 @@ public:
 			}
 
 			// inputPath
-			inputPath = Poco::Path(_dir, baseName); 
-			inputPath.setExtension("pdf");
+			Poco::Path inputPath(_dir, baseName + ".pdf"); 
 			job->inputPath = inputPath.toString();
 
 			// extension determination
@@ -136,8 +138,7 @@ public:
 			}
 
 			// outputPath
-			outputPath = Poco::Path(_dir, baseName); 
-			outputPath.setExtension(ext);
+			Poco::Path outputPath(_dir, baseName + "." + ext); 
 			job->outputPath = outputPath.toString();
 
 			// finish gsArgs vector - path parameters required to be at the end
