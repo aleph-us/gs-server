@@ -30,7 +30,5 @@ CMakeFiles/
 CMakeCache.txt
 
 # Generated output files
-out/
-out/*.pdf
-out/*.pcl
-out/*.xml
+out/*
+!out/.keep
