@@ -205,7 +205,7 @@ protected:
 			{
 				pGSHTTP->wakeUp();
 				pGSHTTP->stop();
-			} 
+			}
 
 			tm.joinAll();
 		}
@@ -216,9 +216,6 @@ protected:
 private:
 	bool _helpRequested = false;
 	bool _configLoaded = false;
-#ifdef GSSERVER_ENABLE_SQL_LOGGING
-	Poco::AutoPtr<Poco::Data::SQLChannel> _pChannel;
-#endif
 };
 
 

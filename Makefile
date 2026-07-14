@@ -49,7 +49,7 @@ ifeq ($(DEFAULT_TARGET),shared_release)
 postbuild += mkdir -p $(BIN_LNK_DIR) $(PROJECT_BASE)/etc && \
 	ln -sf $(BIN_TGT_DIR)/$(target) $(BIN_LNK_DIR)/$(target) && \
 	cp -u $(target).properties $(PROJECT_BASE)/etc && \
-	diff $(target).properties $(PROJECT_BASE)/etc/$(target).properties.$(DATE_TIME) || true && \
+	(diff $(target).properties $(PROJECT_BASE)/etc/$(target).properties.$(DATE_TIME) || true) && \
 	cp -u run$(target).sh $(PROJECT_BASE)
 else ifneq ($(filter shared_debug static_debug,$(MAKECMDGOALS) $(DEFAULT_TARGET)),)
 postbuild += mkdir -p $(BIN_LNK_DIR) && \
