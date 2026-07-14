@@ -82,6 +82,33 @@ sudo apt install libgs-dev ghostscript
 
 ---
 
+## Building
+
+Requirements: CMake ≥ 3.16, a C++20 compiler, [POCO](https://pocoproject.org/)
+(tested with 1.15) and Ghostscript. Database (ODBC) log-channel support is on
+by default and additionally needs unixODBC; configure with
+`-DGSSERVER_ENABLE_SQL_LOGGING=OFF` to build without it (then also remove the
+`sql` channel from the logging configuration).
+
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+build/GSServer --config-file=build/GSServer.properties
+```
+
+For example, in a Nix environment:
+
+```bash
+nix-shell -p poco ghostscript unixodbc cmake ninja clang \
+    --run "cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build"
+```
+
+A `Makefile` for the POCO gmake build system is also provided (requires
+`POCO_BASE` to point at a POCO source build; `GSSERVER_SQL_LOGGING=0`
+disables the ODBC log channel).
+
+---
+
 
 ## License
 

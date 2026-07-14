@@ -25,12 +25,16 @@
 #include "Poco/AsyncNotificationCenter.h"
 #include "Poco/LoggingFactory.h"
 #include "Poco/LoggingRegistry.h"
+#ifdef GSSERVER_ENABLE_SQL_LOGGING
 #include "Poco/Data/SQLChannel.h"
+#endif
 #include "Poco/Util/Option.h"
 #include "Poco/Util/OptionSet.h"
 #include "Poco/Util/HelpFormatter.h"
 #include "Poco/TaskManager.h"
+#ifdef GSSERVER_ENABLE_SQL_LOGGING
 #include "Poco/Data/ODBC/Connector.h"
+#endif
 #include "Poco/Util/ServerApplication.h"
 #include <iostream>
 #include "GSHTTPTask.h"
@@ -40,7 +44,9 @@
 
 using namespace Poco;
 using namespace Poco::Util;
+#ifdef GSSERVER_ENABLE_SQL_LOGGING
 using namespace Poco::Data;
+#endif
 
 
 class GSServerApp: public Poco::Util::ServerApplication
@@ -60,8 +66,10 @@ public:
 protected:
 	void initialize(Application& self)
 	{
+#ifdef GSSERVER_ENABLE_SQL_LOGGING
 		Poco::Data::ODBC::Connector::registerConnector();
 		SQLChannel::registerChannel();
+#endif
 
 		if (!_configLoaded) loadConfiguration();
 
@@ -95,7 +103,9 @@ protected:
 		{
 			logger().information("shutting down");
 			ServerApplication::uninitialize();
+#ifdef GSSERVER_ENABLE_SQL_LOGGING
 			Poco::Data::ODBC::Connector::unregisterConnector();
+#endif
 		}
 	}
 
@@ -206,7 +216,9 @@ protected:
 private:
 	bool _helpRequested = false;
 	bool _configLoaded = false;
+#ifdef GSSERVER_ENABLE_SQL_LOGGING
 	Poco::AutoPtr<Poco::Data::SQLChannel> _pChannel;
+#endif
 };
 
 

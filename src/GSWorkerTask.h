@@ -34,13 +34,13 @@
 class GSWorkerTask : public Poco::Task
 {
 public:
-	GSWorkerTask(Poco::NotificationQueue& convQ, Poco::NotificationQueue& sendQ, 
+	GSWorkerTask(Poco::NotificationQueue& convQ, Poco::NotificationQueue& sendQ,
 		Poco::Logger& logger, Poco::Util::LayeredConfiguration& config);
 	GSWorkerTask(const GSWorkerTask&) = delete;
 	GSWorkerTask& operator=(const GSWorkerTask&) = delete;
 	GSWorkerTask(GSWorkerTask&&) = delete;
 	GSWorkerTask& operator=(GSWorkerTask&&) = delete;
-	
+
 	~GSWorkerTask();
 
 	void runTask() override;
@@ -51,7 +51,7 @@ private:
 	Poco::NotificationQueue& _convQ;
 	Poco::NotificationQueue& _sendQ;
 	Poco::Logger& _logger;
-	Poco::Util::LayeredConfiguration& _config;
+	POCO_UNUSED Poco::Util::LayeredConfiguration& _config;
 };
 
 #endif // GSWorkerTask_INCLUDED
