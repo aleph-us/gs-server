@@ -51,7 +51,7 @@ private:
 	Poco::NotificationQueue& _convQ;
 	Poco::NotificationQueue& _sendQ;
 	Poco::Logger& _logger;
-	POCO_UNUSED Poco::Util::LayeredConfiguration& _config;
+	[[maybe_unused]] Poco::Util::LayeredConfiguration& _config;
 };
 
 #endif // GSWorkerTask_INCLUDED
